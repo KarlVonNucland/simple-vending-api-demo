@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 
@@ -9,8 +10,13 @@ const PORT = process.env.PORT || 3000;
 const SECRET_KEY = 'supersecretkey'; // In real life, use env var
 const DB_FILE = './db.json';
 
-app.use(cors());
+// Enable CORS with credentials for cookie support
+app.use(cors({
+    origin: true, // Reflect the request origin
+    credentials: true
+}));
 app.use(bodyParser.json());
+app.use(cookieParser());
 
 // --- Helper Functions ---
 
@@ -26,8 +32,14 @@ const writeDb = (data) => {
 // --- Middleware ---
 
 const authenticateToken = (req, res, next) => {
+    // 1. Check Authorization header (Bearer token)
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    let token = authHeader && authHeader.split(' ')[1];
+
+    // 2. If no header, check cookies
+    if (!token && req.cookies) {
+        token = req.cookies['token'];
+    }
 
     if (!token) return res.sendStatus(401);
 
@@ -46,12 +58,28 @@ app.post('/login', (req, res) => {
     // Static check as requested
     if (username === 'admin' && password === 'passwd123') {
         const token = jwt.sign({ username: 'admin' }, SECRET_KEY, { expiresIn: '2h' });
-        return res.json({ token });
+        
+        // Support Paradigm 1: HttpOnly Cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: false, // Set to true in production with HTTPS
+            sameSite: 'lax',
+            maxAge: 7200000 // 2 hours
+        });
+
+        // Support Paradigm 2: JSON Response (for localStorage)
+        return res.json({ token, message: "Login successful" });
     }
     res.status(401).json({ message: 'Invalid credentials' });
 });
 
-// 2. List all machines
+// 2. Logout (Clears cookie)
+app.post('/logout', (req, res) => {
+    res.clearCookie('token');
+    res.json({ message: 'Logged out' });
+});
+
+// 3. List all machines
 app.get('/machines', authenticateToken, (req, res) => {
     const db = readDb();
     // Return as array
