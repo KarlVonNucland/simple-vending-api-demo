@@ -10,11 +10,17 @@ const PORT = process.env.PORT || 3000;
 const SECRET_KEY = 'supersecretkey'; // In real life, use env var
 const DB_FILE = './db.json';
 
+// Trust the proxy (Required for Render.com/Heroku/Glitch)
+app.set('trust proxy', 1);
+
 // Enable CORS with credentials for cookie support
 app.use(cors({
     origin: true, // Reflect the request origin
     credentials: true
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 app.use(bodyParser.json());
 app.use(cookieParser());
 
@@ -62,8 +68,8 @@ app.post('/login', (req, res) => {
         // Support Paradigm 1: HttpOnly Cookie
         res.cookie('token', token, {
             httpOnly: true,
-            secure: false, // Set to true in production with HTTPS
-            sameSite: 'lax',
+            secure: true, // Render runs on HTTPS, so we MUST set this to true
+            sameSite: 'none', // Required for cross-site cookies (Frontend on localhost vs Backend on Render)
             maxAge: 7200000 // 2 hours
         });
 
