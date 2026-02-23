@@ -19,8 +19,8 @@ app.use(cors({
     credentials: true
 }));
 
-// Handle preflight requests explicitly
-app.options('*', cors());
+// Handle preflight requests automatically via the cors middleware
+// app.options('*', cors()); // Removed to fix path-to-regexp error
 app.use(bodyParser.json());
 app.use(cookieParser());
 
